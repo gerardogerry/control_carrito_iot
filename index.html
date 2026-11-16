@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050a14">
+  <title>Plataforma Comercial y Control IoT · Grúa #1</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="./assets/css/main.css?v=5">
+</head>
+<body>
+  <div class="hud-bg" aria-hidden="true"></div>
+
+  <!-- =====================================================
+       PANTALLA DE ACCESO Y EXHIBICIÓN PÚBLICA (ROLES)
+       ===================================================== -->
+  <section id="auth-gate" class="container py-4" style="max-width: 960px; overflow-y: auto; height: 100dvh;">
+    <div class="hud-panel p-4 mb-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+          <span class="panel-tag">PLATAFORMA COMERCIAL IoT</span>
+          <h1 class="h4 text-white fw-bold mt-1 mb-0">Control, Monitoreo y Administración de Flota</h1>
+        </div>
+      </div>
+
+      <div id="auth-error-msg" class="alert alert-danger py-2 small" hidden></div>
+
+      <div class="row g-4">
+        <!-- Acceso con Cuenta (Administrador / Propietario) -->
+        <div class="col-md-6">
+          <div class="p-3 rounded border border-info bg-dark bg-opacity-75 h-100">
+            <h2 class="h6 text-info text-uppercase fw-bold mb-3">Acceso Propietario / Administrador</h2>
+            <form id="login-form">
+              <div class="mb-2">
+                <label class="form-label small text-muted mb-1">Correo electrónico</label>
+                <input type="email" id="login-email" class="form-control form-control-sm bg-dark text-white border-info" placeholder="admin@iot.com" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label small text-muted mb-1">Contraseña</label>
+                <input type="password" id="login-password" class="form-control form-control-sm bg-dark text-white border-info" placeholder="••••••••" required>
+              </div>
+              <button type="submit" class="hud-btn hud-btn-green w-100">INICIAR SESIÓN</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Acceso Invitado de 1 Clic (Exhibición) -->
+        <div class="col-md-6">
+          <div class="p-3 rounded border border-info bg-dark bg-opacity-75 h-100">
+            <h2 class="h6 text-info text-uppercase fw-bold mb-2">Prueba en Vivo · Acceso Invitado</h2>
+            <p class="small text-muted mb-2">Selecciona una unidad en exhibición para probar los controles en tiempo real sin registro.</p>
+            <div class="mb-2">
+              <input type="text" id="guest-name-input" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Tu nombre (opcional)">
+            </div>
+            <div id="public-catalog-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       APLICACIÓN PRINCIPAL HUD (CONTROL / MONITOREO / ADMIN)
+       ===================================================== -->
+  <div class="app-viewport" id="app-viewport" hidden>
+    <header class="hud-header">
+      <div class="hud-title">
+        <span class="status-dot" aria-hidden="true"></span>
+        <h1 class="hud-h1">Vehículo IoT: <span id="vehicle-name">Grúa #1</span></h1>
+        <select id="active-vehicle-select" class="hud-select py-0" style="min-height: 28px; font-size: 0.68rem;" hidden></select>
+        <small id="action-feedback" class="badge bg-secondary text-truncate style-feedback" role="status" aria-live="polite">Esperando acción...</small>
+      </div>
+
+      <!-- NAVEGACIÓN DE 3 VISTAS -->
+      <nav class="hud-nav" aria-label="Vistas del sistema IoT" role="tablist">
+        <button type="button" id="tab-control" class="hud-nav-btn is-active" role="tab" aria-selected="true" aria-controls="view-control">CONTROL</button>
+        <button type="button" id="tab-monitoring" class="hud-nav-btn" role="tab" aria-selected="false" aria-controls="view-monitoring">MONITOREO</button>
+        <button type="button" id="tab-admin" class="hud-nav-btn" role="tab" aria-selected="false" aria-controls="view-admin">ADMINISTRACIÓN</button>
+      </nav>
+
+      <!-- INDICADORES + SESIÓN ACTIVA -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="hud-indicators" id="connectivity-panel">
+          <div class="hud-chip" id="indicator-wss">
+            <span class="chip-label">WSS</span>
+            <span class="status-text badge bg-secondary">Desconectado</span>
+          </div>
+          <div class="hud-chip" id="indicator-aws">
+            <span class="chip-label">API AWS</span>
+            <span class="status-text badge bg-warning text-dark">Comprobando</span>
+          </div>
+          <div class="hud-chip" id="indicator-rds">
+            <span class="chip-label">Amazon RDS</span>
+            <span class="status-text badge bg-secondary">Sin verificar</span>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-1">
+          <span id="guest-timer-badge" class="badge bg-warning text-dark" hidden>03:00</span>
+          <span id="session-role-badge" class="badge bg-info text-dark">ADMIN</span>
+          <small id="session-user-name" class="text-white d-none d-xl-inline" style="font-size: 0.7rem;"></small>
+          <button type="button" id="btn-logout" class="hud-btn hud-btn-sm hud-btn-amber" style="min-height: 28px; padding: 2px 8px;">Salir</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- VISTA 1: CONTROL (4.1 intacto) -->
+    <main id="view-control" class="hud-main" role="tabpanel" aria-labelledby="tab-control">
+      <section id="joy-drive" class="hud-panel joy-card" aria-labelledby="joy-drive-title">
+        <div class="panel-head">
+          <span class="panel-tag">J1</span>
+          <h2 id="joy-drive-title" class="panel-title">CONDUCCIÓN</h2>
+          <span class="panel-sub">Mueve el vehículo</span>
+        </div>
+        <div class="joy-body">
+          <span class="joy-label" data-dir="up"><span class="joy-arrow">▲</span><span class="joy-label-text">ADELANTE</span></span>
+          <span class="joy-label" data-dir="left"><span class="joy-arrow">◄</span><span class="joy-label-text">GIRAR IZQ.</span></span>
+          <div class="joystick-wrapper">
+            <div id="joystick-base" class="joystick-base" role="group" tabindex="0">
+              <div id="joystick-stick" class="joystick-stick"></div>
+            </div>
+          </div>
+          <span class="joy-label" data-dir="right"><span class="joy-arrow">►</span><span class="joy-label-text">GIRAR DER.</span></span>
+          <span class="joy-label" data-dir="down"><span class="joy-arrow">▼</span><span class="joy-label-text">ATRÁS</span></span>
+        </div>
+        <div class="joy-foot"><span class="joy-note">Al soltar: se detiene</span></div>
+      </section>
+
+      <section id="joy-crane" class="hud-panel joy-card" aria-labelledby="joy-crane-title">
+        <div class="panel-head">
+          <span class="panel-tag">J2</span>
+          <h2 id="joy-crane-title" class="panel-title">GRÚA</h2>
+          <span class="panel-sub">Torreta, pluma y gancho</span>
+        </div>
+        <div class="joy-body">
+          <span class="joy-label" data-dir="up"><span class="joy-arrow">▲</span><span class="joy-label-text">SUBIR PLUMA</span></span>
+          <span class="joy-label" data-dir="left"><span class="joy-arrow">◄</span><span class="joy-label-text">TORRETA IZQ.</span></span>
+          <div class="joystick-wrapper">
+            <div id="joystick2-base" class="joystick-base" role="group" tabindex="0">
+              <div id="joystick2-stick" class="joystick-stick"></div>
+            </div>
+          </div>
+          <span class="joy-label" data-dir="right"><span class="joy-arrow">►</span><span class="joy-label-text">TORRETA DER.</span></span>
+          <span class="joy-label" data-dir="down"><span class="joy-arrow">▼</span><span class="joy-label-text">BAJAR PLUMA</span></span>
+        </div>
+        <div class="joy-foot">
+          <div class="mode-switch" role="group">
+            <button type="button" class="mode-btn is-selected" data-mode="boom" aria-pressed="true">TORRETA Y PLUMA</button>
+            <button type="button" class="mode-btn" data-mode="hook" aria-pressed="false">GANCHO Y EXTENSIÓN</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="hud-center" aria-label="Controles generales">
+        <div class="hud-panel center-block block-stop">
+          <div class="block-title">Freno general <span class="block-hint">· detiene todo</span></div>
+          <button id="btn-stop" class="hud-btn hud-btn-danger" type="button">DETENER (STOP)</button>
+        </div>
+        <div class="hud-panel center-block block-acc">
+          <div class="block-title">Luces y claxon</div>
+          <div class="acc-row" id="secondary-buttons-container">
+            <button class="hud-btn hud-btn-ghost cmd-btn" type="button" data-cmd-id="14">LUCES ON</button>
+            <button class="hud-btn hud-btn-ghost cmd-btn" type="button" data-cmd-id="15">LUCES OFF</button>
+            <button class="hud-btn hud-btn-amber cmd-btn" type="button" data-cmd-id="16">CLAXON</button>
+          </div>
+        </div>
+        <div class="hud-panel center-block block-demo">
+          <div class="block-title">Rutinas automáticas (DEMO)</div>
+          <div class="demo-row">
+            <select id="demo-select" class="hud-select">
+              <option value="" selected disabled>Cargando DEMOs...</option>
+            </select>
+            <button id="btn-run-demo" class="hud-btn hud-btn-green" type="button">EJECUTAR</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- VISTA 2: MONITOREO (4.2 intacto) -->
+    <section id="view-monitoring" class="hud-monitoring" role="tabpanel" aria-labelledby="tab-monitoring" hidden>
+      <article class="hud-panel monitor-card">
+        <div class="monitor-card-head">
+          <div class="panel-head">
+            <span class="panel-tag">LIVE</span>
+            <h2 class="panel-title">ÚLTIMO MOVIMIENTO REPORTADO</h2>
+          </div>
+          <div class="monitor-actions">
+            <span id="last-move-source-badge" class="badge bg-secondary">Cargando</span>
+            <button type="button" id="btn-refresh-monitoring" class="hud-btn hud-btn-sm">Sincronizar</button>
+          </div>
+        </div>
+        <div id="last-move-body" class="last-move-body" aria-live="polite">
+          <div class="last-move-primary">
+            <span class="last-move-label">Movimiento / Estado actual</span>
+            <div id="last-move-command" class="last-move-command">Cargando...</div>
+            <div id="last-move-meta" class="last-move-meta">Consultando estado en AWS...</div>
+          </div>
+          <dl class="last-move-details">
+            <div class="detail-item"><dt>Código / ID</dt><dd id="last-move-code">—</dd></div>
+            <div class="detail-item"><dt>Fecha y hora (CST)</dt><dd id="last-move-datetime">—</dd></div>
+            <div class="detail-item"><dt>Trazabilidad</dt><dd id="last-move-trace">Esperando datos</dd></div>
+          </dl>
+        </div>
+      </article>
+
+      <article class="hud-panel monitor-table-card">
+        <div class="monitor-card-head">
+          <div class="panel-head">
+            <span class="panel-tag">RDS</span>
+            <h2 class="panel-title">ÚLTIMOS 10 MOVIMIENTOS PERSISTIDOS</h2>
+          </div>
+          <span id="history-count-badge" class="badge bg-info text-dark">0 / 10</span>
+        </div>
+        <div id="history-status-banner" class="monitor-banner" role="status">Cargando historial...</div>
+        <div class="table-responsive monitor-table-wrap">
+          <table class="table table-dark table-hover align-middle mb-0 monitor-table">
+            <thead>
+              <tr><th class="col-num">#</th><th>Movimiento</th><th>Fecha</th><th>Hora</th></tr>
+            </thead>
+            <tbody id="history-table-body">
+              <tr><td colspan="4" class="text-center text-muted py-4">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- =====================================================
+         VISTA 3: ADMINISTRACIÓN COMERCIAL Y DEMOS PRIVADAS
+         ===================================================== -->
+    <section id="view-admin" class="hud-monitoring" role="tabpanel" aria-labelledby="tab-admin" hidden>
+      <!-- SECCIÓN EXCLUSIVA ADMINISTRADOR: GESTIÓN COMERCIAL -->
+      <div data-admin-only class="row g-3">
+        <!-- Modelos -->
+        <div class="col-md-4">
+          <article class="hud-panel monitor-card h-100">
+            <h2 class="panel-title">1. MODELOS COMERCIALES</h2>
+            <form id="form-create-modelo" class="d-flex flex-column gap-2">
+              <input type="text" name="nombre_modelo" class="hud-select" placeholder="Nombre del modelo" required>
+              <input type="text" name="descripcion" class="hud-select" placeholder="Descripción breve">
+              <button type="submit" class="hud-btn hud-btn-sm hud-btn-green">Registrar Modelo</button>
+            </form>
+          </article>
+        </div>
+
+        <!-- Unidades -->
+        <div class="col-md-4">
+          <article class="hud-panel monitor-card h-100">
+            <h2 class="panel-title">2. ALTA DE UNIDAD IoT</h2>
+            <form id="form-create-vehiculo" class="d-flex flex-column gap-2">
+              <input type="text" name="codigo_serie" class="hud-select" placeholder="Serie (ej. UNIT-0002)" required>
+              <input type="text" name="nombre" class="hud-select" placeholder="Nombre (ej. Grúa #2)" required>
+              <select name="id_modelo" id="vehiculo-modelo-select" class="hud-select"></select>
+              <select name="estado_comercial" class="hud-select">
+                <option value="EXHIBICION">EXHIBICION (Pública Invitados)</option>
+                <option value="DISPONIBLE">DISPONIBLE (Inventario)</option>
+                <option value="VENDIDO">VENDIDO</option>
+              </select>
+              <button type="submit" class="hud-btn hud-btn-sm hud-btn-green">Crear Unidad</button>
+            </form>
+          </article>
+        </div>
+
+        <!-- Clientes -->
+        <div class="col-md-4">
+          <article class="hud-panel monitor-card h-100">
+            <h2 class="panel-title">3. ALTA DE CLIENTE</h2>
+            <form id="form-create-cliente" class="d-flex flex-column gap-2">
+              <input type="text" name="nombre" class="hud-select" placeholder="Nombre completo" required>
+              <input type="email" name="email" class="hud-select" placeholder="cliente@empresa.com" required>
+              <input type="password" name="password" class="hud-select" placeholder="Contraseña inicial" required>
+              <button type="submit" class="hud-btn hud-btn-sm hud-btn-green">Crear Propietario</button>
+            </form>
+          </article>
+        </div>
+
+        <!-- Asignación y Soporte -->
+        <div class="col-md-6">
+          <article class="hud-panel monitor-card h-100">
+            <h2 class="panel-title">4. ASIGNAR UNIDAD A PROPIETARIO</h2>
+            <form id="form-asignar-unidad" class="d-flex flex-column gap-2">
+              <select name="id_vehiculo" id="asig-vehiculo-select" class="hud-select"></select>
+              <select name="id_usuario" id="asig-cliente-select" class="hud-select"></select>
+              <button type="submit" class="hud-btn hud-btn-sm hud-btn-green">Asignar Propiedad</button>
+            </form>
+          </article>
+        </div>
+
+        <div class="col-md-6">
+          <article class="hud-panel monitor-card h-100">
+            <h2 class="panel-title">5. INTERRUPTOR DE SOPORTE TÉCNICO</h2>
+            <p class="small text-muted mb-1">Autoriza o revoca soporte temporal sobre unidades vendidas.</p>
+            <div class="d-flex gap-2 flex-wrap">
+              <select id="soporte-vehiculo-select" class="hud-select flex-grow-1"></select>
+              <select id="soporte-estado-select" class="hud-select">
+                <option value="1">Autorizar Soporte</option>
+                <option value="0">Revocar Soporte</option>
+              </select>
+              <button type="button" id="btn-toggle-soporte" class="hud-btn hud-btn-sm hud-btn-amber">Aplicar</button>
+            </div>
+          </article>
+        </div>
+
+        <!-- Inventario Comercial -->
+        <div class="col-12">
+          <article class="hud-panel monitor-table-card">
+            <h2 class="panel-title">INVENTARIO DE UNIDADES Y ESTADO COMERCIAL</h2>
+            <div class="table-responsive monitor-table-wrap">
+              <table class="table table-dark table-hover align-middle mb-0 monitor-table">
+                <thead>
+                  <tr><th>Serie</th><th>Nombre</th><th>Modelo</th><th>Estado</th><th>Propietario</th><th>Soporte</th></tr>
+                </thead>
+                <tbody id="admin-vehiculos-tbody"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- SECCIÓN COMPARTIDA (PROPIETARIOS Y ADMIN): EDITOR DE DEMOS PRIVADAS -->
+      <article class="hud-panel monitor-card">
+        <div class="monitor-card-head">
+          <div class="panel-head">
+            <span class="panel-tag">DEMOS</span>
+            <h2 class="panel-title">EDITOR DE RUTINAS DEMO POR UNIDAD</h2>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <form id="form-create-demo" class="d-flex flex-column gap-2">
+              <select id="demo-owner-vehiculo" class="hud-select"></select>
+              <input type="text" id="demo-owner-nombre" class="hud-select" placeholder="Nombre de la nueva DEMO" required>
+              <input type="text" id="demo-owner-desc" class="hud-select" placeholder="Descripción de la rutina">
+              <div class="small text-info fw-bold mt-1">Secuencia de pasos (Comando + ms):</div>
+              <div id="demo-steps-container"></div>
+              <div class="d-flex gap-2">
+                <button type="button" id="btn-add-demo-step" class="hud-btn hud-btn-sm">+ Agregar Paso</button>
+                <button type="submit" class="hud-btn hud-btn-sm hud-btn-green flex-grow-1">Guardar DEMO</button>
+              </div>
+            </form>
+          </div>
+          <div class="col-md-6">
+            <h3 class="h6 text-info text-uppercase">Demos de la unidad seleccionada</h3>
+            <ul id="owner-demos-list" class="list-unstyled mb-0"></ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- BITÁCORA DE AUDITORÍA (SOLO ADMIN) -->
+      <article data-admin-only class="hud-panel monitor-table-card">
+        <h2 class="panel-title">BITÁCORA DE AUDITORÍA DE SEGURIDAD</h2>
+        <div class="table-responsive monitor-table-wrap">
+          <table class="table table-dark table-hover align-middle mb-0 monitor-table">
+            <thead>
+              <tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Detalle</th><th>Resultado</th></tr>
+            </thead>
+            <tbody id="admin-auditoria-tbody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <footer class="hud-footer">
+      <small>Desarrollado por <strong>Gerardo Silva Escorza</strong> · 2026</small>
+    </footer>
+  </div>
+
+  <script type="module" src="./assets/js/app.js?v=5"></script>
+</body>
+</html>
